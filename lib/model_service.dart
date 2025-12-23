@@ -134,6 +134,11 @@ class ModelService {
         double width = batch[2][i].toDouble();
         double height = batch[3][i].toDouble();
         
+        // Debug: İlk birkaç tahmin için koordinatları yazdır
+        if (i < 3) {
+          print('Tahmin $i - centerX: $centerX, centerY: $centerY, width: $width, height: $height');
+        }
+        
         double maxClassScore = 0.0;
         int maxClassIdx = 0;
         
@@ -154,10 +159,17 @@ class ModelService {
         
         if (width < 0.05 || height < 0.05) continue;
         
-        double x1 = (centerX - width / 2) * originalImage.width;
-        double y1 = (centerY - height / 2) * originalImage.height;
-        double x2 = (centerX + width / 2) * originalImage.width;
-        double y2 = (centerY + height / 2) * originalImage.height;
+        // Koordinatları normalleştirilmiş (0-1 aralığı) olarak kabul et
+        // Eğer 0-1 aralığında değilse, inputSize'a göre normalleştir
+        double normalizedCenterX = centerX > 1.0 ? centerX / inputSize : centerX;
+        double normalizedCenterY = centerY > 1.0 ? centerY / inputSize : centerY;
+        double normalizedWidth = width > 1.0 ? width / inputSize : width;
+        double normalizedHeight = height > 1.0 ? height / inputSize : height;
+        
+        double x1 = (normalizedCenterX - normalizedWidth / 2) * originalImage.width;
+        double y1 = (normalizedCenterY - normalizedHeight / 2) * originalImage.height;
+        double x2 = (normalizedCenterX + normalizedWidth / 2) * originalImage.width;
+        double y2 = (normalizedCenterY + normalizedHeight / 2) * originalImage.height;
         
         x1 = x1.clamp(0.0, originalImage.width.toDouble());
         y1 = y1.clamp(0.0, originalImage.height.toDouble());
