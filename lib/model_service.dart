@@ -351,4 +351,70 @@ class ModelService {
     _interpreter?.close();
     _isModelLoaded = false;
   }
+
+  Future<Map<String, dynamic>> predictFromBytes(Uint8List imageBytes) async {
+    if (!_isModelLoaded || _interpreter == null) {
+      await loadModel();
+    }
+
+    if (_interpreter == null) {
+      throw Exception('Model yüklenemedi');
+    }
+
+    try {
+      img.Image? originalImage = img.decodeImage(imageBytes);
+      
+      if (originalImage == null) {
+        throw Exception('Resim decode edilemedi');
+      }
+
+      img.Image resizedImage = img.copyResize(
+        originalImage,
+        width: inputSize,
+        height: inputSize,
+      );
+
+      var input = _imageToByteListFloat32(resizedImage);
+      
+      var inputTensor = input.reshape([1, inputSize, inputSize, 3]);
+
+      var outputShape = _interpreter!.getOutputTensor(0).shape;
+      var output = List.generate(
+        outputShape[1],
+        (i) => List.filled(outputShape[2], 0.0),
+      ).reshape([1, outputShape[1], outputShape[2]]);
+
+      _interpreter!.run(inputTensor, output);
+
+      var detections = _processOutput(output, originalImage);
+      detections = _applyNMS(detections);
+
+      if (detections.isEmpty) {
+        return {
+          'label': 'Nesne tespit edilemedi',
+          'confidence': 0.0,
+          'detections': [],
+          'imageWidth': originalImage.width,
+          'imageHeight': originalImage.height,
+        };
+      }
+
+      detections.sort((a, b) => b['confidence'].compareTo(a['confidence']));
+      
+      return {
+        'label': detections.first['label'] ?? 'Bilinmeyen',
+        'confidence': detections.first['confidence'] ?? 0.0,
+        'detections': detections,
+        'imageWidth': originalImage.width,
+        'imageHeight': originalImage.height,
+      };
+    } catch (e) {
+      print('Frame tahmin hatası: $e');
+      return {
+        'label': 'Hata: $e',
+        'confidence': 0.0,
+        'detections': [],
+      };
+    }
+  }
 }
